@@ -5,14 +5,14 @@
 Replicação contínua de tabelas entre dois bancos com Debezium e Kafka, e um consumidor em Python que
 aplica cada mudança no destino. Montei este repositório a partir de um projeto do trabalho para
 substituir um serviço gerenciado de replicação (o AWS DMS) por uma solução nossa. Lá a origem é um
-Oracle; aqui ela é um Postgres, para tudo rodar com um `docker compose up`. Os dados são fictícios e o
-código foi escrito do zero.
+Oracle; aqui ela é um Postgres, para tudo rodar com um `docker compose up`. A loja é inventada e o
+código foi escrito para este repositório.
 
-*In English: Postgres → Debezium → Kafka → Python → Postgres. The consumer keeps the Kafka offsets in
+*Postgres → Debezium → Kafka → Python → Postgres. The consumer keeps the Kafka offsets in
 the target database, in the same transaction as the data, so a crash never duplicates or loses an
 event. Synthetic data; the whole stack runs with docker compose.*
 
-## Rodando
+## Subindo a stack
 
 Precisa de Docker e Python 3.10 a 3.13.
 
@@ -48,7 +48,7 @@ alterações, espelha de novo e compara as duas pontas tabela por tabela. Para r
 Os 14 tombstones são os que o Debezium publica depois de cada delete, para o Kafka poder compactar o
 tópico. O consumidor só avança o offset neles.
 
-## Como funciona
+## Por dentro
 
 ```mermaid
 flowchart LR
@@ -85,7 +85,7 @@ As mensagens vão sem schema, então quem diz como ler cada valor é a coluna de
 em micro ou milissegundos conforme a precisão, `date` em dias desde 1970 e `numeric` como texto. Isso
 fica em `tipos.py`, com um teste para cada caso.
 
-## Algumas decisões
+## Por que assim
 
 Usei um consumidor próprio em vez do JDBC Sink do Kafka Connect. O sink não lida com tópico sem
 schema, e o que eu precisava controlar (offset no destino, savepoint por evento, troca de chave
@@ -99,7 +99,7 @@ A reconciliação não fica só na contagem: compara também um hash das linhas 
 calculado no próprio banco dos dois lados. Contagem igual com conteúdo diferente acontece mais do que
 parece.
 
-## No projeto real
+## Na versão do trabalho
 
 - A origem é Oracle, lida pelo conector Oracle do Debezium com LogMiner. Isso pede supplemental
   logging na origem, que faz o papel do `REPLICA IDENTITY` daqui, inclusive nas tabelas sem chave
@@ -108,7 +108,7 @@ parece.
 - São dezenas de tabelas, e o catálogo segue a mesma ideia, com mais campos.
 - Lag e erros são acompanhados com Prometheus e Grafana.
 
-## Testes
+## O que os testes provam
 
 `pytest` roda os testes de unidade (eventos, tipos, SQL, catálogo e configuração do conector) sem
 precisar de banco nem de Kafka.
