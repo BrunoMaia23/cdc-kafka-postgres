@@ -1,0 +1,72 @@
+# Stack da demo: origem (Postgres com replicação lógica) -> Debezium -> Kafka -> espelho (Python) -> destino.
+# Só para rodar local: os bancos aceitam conexão sem senha.
+services:
+  origem:
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4", "-c", "max_wal_senders=4"]
+    environment:
+      POSTGRES_USER: loja
+      POSTGRES_DB: loja
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports: ["55432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loja -d loja"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  destino:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: espelho
+      POSTGRES_DB: espelho
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports: ["55433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U espelho -d espelho"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  kafka:
+    image: apache/kafka:3.8.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNO://:29092,EXTERNO://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNO://kafka:29092,EXTERNO://localhost:59092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNO:PLAINTEXT,EXTERNO:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNO
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports: ["59092:9092"]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:29092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 15s
+      retries: 30
+
+  connect:
+    image: quay.io/debezium/connect:2.7.3.Final
+    depends_on:
+      kafka: {condition: service_healthy}
+      origem: {condition: service_healthy}
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: connect
+      CONFIG_STORAGE_TOPIC: _connect_config
+      OFFSET_STORAGE_TOPIC: _connect_offsets
+      STATUS_STORAGE_TOPIC: _connect_status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+    ports: ["58083:8083"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8083/connectors > /dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 30

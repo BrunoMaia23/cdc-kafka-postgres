@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "espelho-cdc"
+version = "1.0.0"
+description = "Espelho de um Postgres em outro via Debezium e Kafka, com offset gravado junto com os dados"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = { text = "MIT" }
+authors = [{ name = "Bruno Maia" }]
+dependencies = ["psycopg[binary]>=3.2,<4", "confluent-kafka>=2.6,<3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+espelho = "espelho.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+espelho = ["catalogo.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integracao: precisa da stack do docker-compose no ar"]
+addopts = "-m 'not integracao'"

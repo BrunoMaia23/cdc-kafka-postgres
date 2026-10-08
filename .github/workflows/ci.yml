@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unitarios:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  integracao:
+    needs: unitarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - name: Sobe origem, destino, Kafka e Debezium
+        run: docker compose up -d --wait --wait-timeout 300
+      - name: Demo completa
+        run: python -m espelho demo
+      - name: Queda no meio do lote, evento malformado e reinício
+        run: pytest -q -m integracao
+      - name: Logs do Kafka Connect
+        if: failure()
+        run: docker compose logs connect | tail -200
+      - if: always()
+        run: docker compose down -v

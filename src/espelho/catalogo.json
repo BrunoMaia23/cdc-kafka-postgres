@@ -1,0 +1,10 @@
+{
+  "topico_prefixo": "loja",
+  "tabelas": [
+    {"nome": "cliente", "estrategia": "cdc", "chave": ["id"]},
+    {"nome": "produto", "estrategia": "cdc", "chave": ["sku"], "chave_natural": true},
+    {"nome": "pedido", "estrategia": "cdc", "chave": ["id"]},
+    {"nome": "item_pedido", "estrategia": "cdc", "chave": ["pedido_id", "linha"]},
+    {"nome": "evento_site", "estrategia": "carga_completa", "chave": []}
+  ]
+}
