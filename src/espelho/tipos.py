@@ -6,11 +6,13 @@ date chega em dias desde 1970; numeric chega como texto por causa do decimal.han
 """
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 EPOCA = datetime(1970, 1, 1)
 INTEIROS = ("smallint", "integer", "bigint")
+FRACAO = re.compile(r"\.(\d+)")
 
 
 def converter(valor, tipo: str, precisao: int | None = None):
@@ -20,7 +22,7 @@ def converter(valor, tipo: str, precisao: int | None = None):
         micros = int(valor) * 1_000 if precisao is not None and precisao <= 3 else int(valor)
         return EPOCA + timedelta(microseconds=micros)
     if tipo == "timestamp with time zone":
-        return datetime.fromisoformat(str(valor).replace("Z", "+00:00"))
+        return _iso(str(valor))
     if tipo == "date":
         return date(1970, 1, 1) + timedelta(days=int(valor))
     if tipo == "numeric":
@@ -33,6 +35,12 @@ def converter(valor, tipo: str, precisao: int | None = None):
             raise ValueError(f"{tipo} inválido: {valor!r}")
         return int(valor)
     return valor
+
+
+def _iso(texto: str) -> datetime:
+    # o Python 3.10 só aceita fração de segundo com 3 ou 6 dígitos, e não aceita o Z
+    texto = FRACAO.sub(lambda m: "." + m.group(1)[:6].ljust(6, "0"), texto.replace("Z", "+00:00"), count=1)
+    return datetime.fromisoformat(texto)
 
 
 def converter_linha(valores: dict, colunas: dict[str, tuple[str, int | None]]) -> dict:

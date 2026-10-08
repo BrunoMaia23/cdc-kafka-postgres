@@ -11,9 +11,14 @@ def test_timestamp_em_microssegundos_e_milissegundos():
     assert converter(1_767_600_000_123, "timestamp without time zone", 3) == datetime(2026, 1, 5, 8, 0, 0, 123000)
 
 
-def test_timestamptz_aceita_z_no_python_310():
-    assert converter("2026-01-05T08:00:00.5Z", "timestamp with time zone") == \
-        datetime(2026, 1, 5, 8, 0, 0, 500000, tzinfo=timezone.utc)
+@pytest.mark.parametrize("texto, micros", [
+    ("2026-01-05T08:00:00.5Z", 500000),
+    ("2026-01-05T08:00:00.123456789Z", 123456),
+    ("2026-01-05T08:00:00Z", 0),
+    ("2026-01-05T05:00:00.25-03:00", 250000),
+])
+def test_timestamptz_com_z_e_fracao_de_qualquer_tamanho(texto, micros):
+    assert converter(texto, "timestamp with time zone") == datetime(2026, 1, 5, 8, 0, 0, micros, tzinfo=timezone.utc)
 
 
 def test_date_em_dias_desde_1970():
